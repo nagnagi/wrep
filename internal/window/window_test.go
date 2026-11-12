@@ -119,18 +119,56 @@ func addresses(ws []Window) []string {
 }
 
 func TestFormatLine(t *testing.T) {
-	w := mustWindow(t, sampleClient())
-	want := "3\tfirefox\tExample - Mozilla Firefox\t0xaaa"
-	if got := FormatLine(w); got != want {
-		t.Errorf("FormatLine = %q, want %q", got, want)
+	w := mustWindow(t, sampleClient()) // ws "3", title "Example - Mozilla Firefox", class "firefox"
+	cases := []struct {
+		format Format
+		icon   bool
+		want   string
+	}{
+		{FormatShort, false, " 3 Example - Mozilla Firefox\t0xaaa"},
+		{FormatFull, false, " 3  Example - Mozilla Firefox - firefox\t0xaaa"},
+		{FormatShort, true, " 3 Example - Mozilla Firefox\t0xaaa\x00icon\x1ffirefox"},
+		{FormatFull, true, " 3  Example - Mozilla Firefox - firefox\t0xaaa\x00icon\x1ffirefox"},
+	}
+	for _, c := range cases {
+		if got := FormatLine(w, c.format, c.icon); got != c.want {
+			t.Errorf("FormatLine(%s, icon=%v) = %q, want %q", c.format, c.icon, got, c.want)
+		}
+	}
+}
+
+func TestFormatLineAlignsWorkspace(t *testing.T) {
+	w := mustWindow(t, sampleClient()) // workspace name "3"
+	if got := FormatLine(w, FormatShort, false); got[:2] != " 3" {
+		t.Errorf("workspace not right-aligned in 2 cols: %q", got)
+	}
+	wide := sampleClient()
+	wide["workspace"] = map[string]any{"id": 23, "name": "23"}
+	if got := FormatLine(mustWindow(t, wide), FormatShort, false); got[:2] != "23" {
+		t.Errorf("2-digit workspace should not be padded: %q", got)
+	}
+}
+
+func TestIconFor(t *testing.T) {
+	cases := []struct{ class, want string }{
+		{"org.mozilla.Thunderbird", "thunderbird"},
+		{"footclient", "footclient"},
+		{"Steam", "steam"},
+		{"", ""},
+	}
+	for _, c := range cases {
+		w := Window{Class: c.class}
+		if got := IconFor(w); got != c.want {
+			t.Errorf("IconFor(%q) = %q, want %q", c.class, got, c.want)
+		}
 	}
 }
 
 func TestAddressFromLine(t *testing.T) {
 	cases := []struct{ in, want string }{
-		{"3\tfirefox\tSome title with\ttabs\t0xabc\n", "0xabc"},
+		{"3 Example - title\t0xabc\n", "0xabc"},
 		{"0xabc", "0xabc"},
-		{"1\tfoot\t~ - foot\t0xaaa", "0xaaa"},
+		{" 1 ~ - foot\t0xaaa\x00icon\x1ffootclient", "0xaaa"},
 	}
 	for _, c := range cases {
 		if got := AddressFromLine(c.in); got != c.want {

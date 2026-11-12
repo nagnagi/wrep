@@ -48,9 +48,29 @@ func TestList(t *testing.T) {
 	if rc != 0 {
 		t.Fatalf("rc = %d", rc)
 	}
-	want := "1\tfootclient\t~ - foot\t0xaaa\n"
+	want := " 1 ~ - foot\t0xaaa\n"
 	if out != want {
 		t.Errorf("list output = %q, want %q", out, want)
+	}
+}
+
+func TestListFormatFull(t *testing.T) {
+	stubHyprland(t)
+	rc, out, _ := run(t, "list", "--format", "full")
+	if rc != 0 {
+		t.Fatalf("rc = %d", rc)
+	}
+	want := " 1  ~ - foot - footclient\t0xaaa\n"
+	if out != want {
+		t.Errorf("list --format full = %q, want %q", out, want)
+	}
+}
+
+func TestListInvalidFormat(t *testing.T) {
+	stubHyprland(t)
+	rc, _, stderr := run(t, "list", "--format", "bogus")
+	if rc != 2 || !strings.Contains(stderr, "invalid format") {
+		t.Errorf("rc = %d, stderr = %q", rc, stderr)
 	}
 }
 
@@ -100,6 +120,38 @@ func TestSwitchFocusesSelected(t *testing.T) {
 	}
 	if len(*dispatches) != 1 || (*dispatches)[0] != "focuswindow address:0xaaa" {
 		t.Errorf("dispatches = %v", *dispatches)
+	}
+}
+
+func TestSwitchIconMetadata(t *testing.T) {
+	stubHyprland(t)
+	origSelect := launcher.Select
+	var gotLines []string
+	launcher.Select = func(name string, lines []string, prompt string) (string, error) {
+		gotLines = lines
+		return "", nil
+	}
+	t.Cleanup(func() { launcher.Select = origSelect })
+
+	// fuzzel supports icons: metadata must be appended by default
+	run(t, "switch", "--launcher", "fuzzel")
+	if len(gotLines) != 1 || !strings.Contains(gotLines[0], "\x00icon\x1ffootclient") {
+		t.Errorf("fuzzel lines = %q, want icon metadata", gotLines)
+	}
+	// --icon=false disables it
+	run(t, "switch", "--launcher", "fuffel", "--icon=false")
+	if strings.Contains(gotLines[0], "\x00icon") {
+		t.Errorf("--icon=false lines = %q, want no icon metadata", gotLines)
+	}
+	// wofi does not support icons: no metadata even by default
+	run(t, "switch", "--launcher", "wofi")
+	if strings.Contains(gotLines[0], "\x00icon") {
+		t.Errorf("wofi lines = %q, want no icon metadata", gotLines)
+	}
+	// --format full includes class
+	run(t, "switch", "--launcher", "fuffel", "--format", "full", "--icon=false")
+	if !strings.HasPrefix(gotLines[0], " 1  ~ - foot - footclient\t") {
+		t.Errorf("full format line = %q", gotLines[0])
 	}
 }
 

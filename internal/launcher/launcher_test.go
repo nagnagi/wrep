@@ -26,12 +26,21 @@ func TestDefaultLauncher(t *testing.T) {
 	}
 }
 
+func TestSupportsIcon(t *testing.T) {
+	want := map[string]bool{"fuzzel": true, "rofi": true, "wofi": false, "dmenu": false}
+	for name, w := range want {
+		if got := Launchers[name].SupportsIcon; got != w {
+			t.Errorf("Launchers[%q].SupportsIcon = %v, want %v", name, got, w)
+		}
+	}
+}
+
 func TestBuildArgv(t *testing.T) {
 	cases := []struct {
 		name string
 		want []string
 	}{
-		{"fuzzel", []string{"fuzzel", "--dmenu", "--prompt", "W> ", "--with-nth", "1,2,3", "--width", "80"}},
+		{"fuzzel", []string{"fuzzel", "--dmenu", "--prompt", "W> ", "--with-nth", "1", "--accept-nth", "2"}},
 		{"wofi", []string{"wofi", "--show", "dmenu", "--prompt", "W> "}},
 		{"rofi", []string{"rofi", "-dmenu", "-i", "-p", "W> "}},
 		{"dmenu", []string{"dmenu", "-i", "-p", "W> "}},

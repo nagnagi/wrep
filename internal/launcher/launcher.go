@@ -18,25 +18,29 @@ func (e *LauncherError) Error() string { return e.Msg }
 type Launcher struct {
 	Name      string
 	BuildArgv func(prompt string) []string
+	// SupportsIcon reports whether the launcher understands the rofi-style
+	// "\0icon\x1f<name>" metadata appended to input lines.
+	SupportsIcon bool
 }
 
-// displayFields hides the trailing address field in launchers that support
-// --with-nth (fuzzel).
-const displayFields = "1,2,3"
+// displayField is the launcher line field shown to the user; acceptField is
+// the trailing address field. Used by fuzzel via --with-nth / --accept-nth.
+const displayField = "1"
+const acceptField = "2"
 
 // Launchers maps launcher names to their definitions.
 var Launchers = map[string]Launcher{
-	"fuzzel": {Name: "fuzzel", BuildArgv: func(prompt string) []string {
+	"fuzzel": {Name: "fuzzel", SupportsIcon: true, BuildArgv: func(prompt string) []string {
 		return []string{"fuzzel", "--dmenu", "--prompt", prompt,
-			"--with-nth", displayFields, "--width", "80"}
+			"--with-nth", displayField, "--accept-nth", acceptField}
 	}},
-	"wofi": {Name: "wofi", BuildArgv: func(prompt string) []string {
+	"wofi": {Name: "wofi", SupportsIcon: false, BuildArgv: func(prompt string) []string {
 		return []string{"wofi", "--show", "dmenu", "--prompt", prompt}
 	}},
-	"rofi": {Name: "rofi", BuildArgv: func(prompt string) []string {
+	"rofi": {Name: "rofi", SupportsIcon: true, BuildArgv: func(prompt string) []string {
 		return []string{"rofi", "-dmenu", "-i", "-p", prompt}
 	}},
-	"dmenu": {Name: "dmenu", BuildArgv: func(prompt string) []string {
+	"dmenu": {Name: "dmenu", SupportsIcon: false, BuildArgv: func(prompt string) []string {
 		return []string{"dmenu", "-i", "-p", prompt}
 	}},
 }

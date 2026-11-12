@@ -61,12 +61,27 @@ run "wrep <command> -h" for command options.
 `)
 }
 
+func parseFormat(s string) (window.Format, error) {
+	switch f := window.Format(s); f {
+	case window.FormatShort, window.FormatFull:
+		return f, nil
+	default:
+		return "", fmt.Errorf("invalid format %q (want short|full)", s)
+	}
+}
+
 func cmdList(stdout, stderr io.Writer, args []string) int {
 	fs := flag.NewFlagSet("list", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	asJSON := fs.Bool("json", false, "output raw JSON")
 	includeAll := fs.Bool("all", false, "include special-workspace and empty-title windows")
+	formatFlag := fs.String("format", string(window.FormatShort), "display format: short|full")
 	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	format, err := parseFormat(*formatFlag)
+	if err != nil {
+		fmt.Fprintf(stderr, "wrep: %v\n", err)
 		return 2
 	}
 	windows, err := hyprland.Clients()
@@ -83,7 +98,7 @@ func cmdList(stdout, stderr io.Writer, args []string) int {
 		return 0
 	}
 	for _, w := range windows {
-		fmt.Fprintln(stdout, window.FormatLine(w))
+		fmt.Fprintln(stdout, window.FormatLine(w, format, false))
 	}
 	return 0
 }
@@ -94,16 +109,24 @@ func cmdSwitch(stdout, stderr io.Writer, args []string) int {
 	launcherName := fs.String("launcher", launcher.DefaultLauncher, "launcher to use: "+strings.Join(launcher.Names(), ", "))
 	prompt := fs.String("prompt", "Window> ", "launcher prompt")
 	includeAll := fs.Bool("all", false, "include special-workspace and empty-title windows")
+	formatFlag := fs.String("format", string(window.FormatShort), "display format: short|full")
+	icon := fs.Bool("icon", true, "show app icons (launchers that support them)")
 	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	format, err := parseFormat(*formatFlag)
+	if err != nil {
+		fmt.Fprintf(stderr, "wrep: %v\n", err)
 		return 2
 	}
 	windows, err := hyprland.Clients()
 	if err != nil {
 		return fail(stderr, err)
 	}
+	withIcon := *icon && launcher.Launchers[*launcherName].SupportsIcon
 	lines := make([]string, 0, len(windows))
 	for _, w := range window.FilterListable(windows, *includeAll) {
-		lines = append(lines, window.FormatLine(w))
+		lines = append(lines, window.FormatLine(w, format, withIcon))
 	}
 	selected, err := launcher.Select(*launcherName, lines, *prompt)
 	if err != nil {
