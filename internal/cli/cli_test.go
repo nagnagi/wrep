@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -136,10 +138,10 @@ func TestSwitchIconMetadata(t *testing.T) {
 	// fuzzel supports icons: metadata must be appended by default
 	run(t, "switch", "--launcher", "fuzzel")
 	if len(gotLines) != 1 || !strings.Contains(gotLines[0], "\x00icon\x1ffootclient") {
-		t.Errorf("fuzzel lines = %q, want icon metadata", gotLines)
+		t.Errorf("fuzzel lines = %q, want fallback icon metadata 'footclient'", gotLines)
 	}
 	// --icon=false disables it
-	run(t, "switch", "--launcher", "fuffel", "--icon=false")
+	run(t, "switch", "--launcher", "fuzzel", "--icon=false")
 	if strings.Contains(gotLines[0], "\x00icon") {
 		t.Errorf("--icon=false lines = %q, want no icon metadata", gotLines)
 	}
@@ -149,9 +151,39 @@ func TestSwitchIconMetadata(t *testing.T) {
 		t.Errorf("wofi lines = %q, want no icon metadata", gotLines)
 	}
 	// --format full includes class
-	run(t, "switch", "--launcher", "fuffel", "--format", "full", "--icon=false")
+	run(t, "switch", "--launcher", "fuzzel", "--format", "full", "--icon=false")
 	if !strings.HasPrefix(gotLines[0], " 1  ~ - foot - footclient\t") {
 		t.Errorf("full format line = %q", gotLines[0])
+	}
+}
+
+func TestSwitchIconMap(t *testing.T) {
+	stubHyprland(t)
+	origSelect := launcher.Select
+	var gotLines []string
+	launcher.Select = func(name string, lines []string, prompt string) (string, error) {
+		gotLines = lines
+		return "", nil
+	}
+	t.Cleanup(func() { launcher.Select = origSelect })
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "icons.conf")
+	if err := os.WriteFile(path, []byte("footclient=myterm\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rc, _, _ := run(t, "switch", "--launcher", "fuzzel", "--icon-map", path)
+	if rc != 0 {
+		t.Fatalf("rc = %d", rc)
+	}
+	if !strings.Contains(gotLines[0], "\x00icon\x1fmyterm") {
+		t.Errorf("lines = %q, want user icon 'myterm'", gotLines)
+	}
+
+	// missing map file is an error
+	rc, _, stderr := run(t, "switch", "--launcher", "fuzzel", "--icon-map", filepath.Join(dir, "nope.conf"))
+	if rc != 1 || stderr == "" {
+		t.Errorf("rc = %d, stderr = %q; want 1 with error", rc, stderr)
 	}
 }
 

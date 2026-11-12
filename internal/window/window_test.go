@@ -122,45 +122,30 @@ func TestFormatLine(t *testing.T) {
 	w := mustWindow(t, sampleClient()) // ws "3", title "Example - Mozilla Firefox", class "firefox"
 	cases := []struct {
 		format Format
-		icon   bool
+		icon   string
 		want   string
 	}{
-		{FormatShort, false, " 3 Example - Mozilla Firefox\t0xaaa"},
-		{FormatFull, false, " 3  Example - Mozilla Firefox - firefox\t0xaaa"},
-		{FormatShort, true, " 3 Example - Mozilla Firefox\t0xaaa\x00icon\x1ffirefox"},
-		{FormatFull, true, " 3  Example - Mozilla Firefox - firefox\t0xaaa\x00icon\x1ffirefox"},
+		{FormatShort, "", " 3 Example - Mozilla Firefox\t0xaaa"},
+		{FormatFull, "", " 3  Example - Mozilla Firefox - firefox\t0xaaa"},
+		{FormatShort, "firefox", " 3 Example - Mozilla Firefox\t0xaaa\x00icon\x1ffirefox"},
+		{FormatFull, "firefox", " 3  Example - Mozilla Firefox - firefox\t0xaaa\x00icon\x1ffirefox"},
 	}
 	for _, c := range cases {
 		if got := FormatLine(w, c.format, c.icon); got != c.want {
-			t.Errorf("FormatLine(%s, icon=%v) = %q, want %q", c.format, c.icon, got, c.want)
+			t.Errorf("FormatLine(%s, icon=%q) = %q, want %q", c.format, c.icon, got, c.want)
 		}
 	}
 }
 
 func TestFormatLineAlignsWorkspace(t *testing.T) {
 	w := mustWindow(t, sampleClient()) // workspace name "3"
-	if got := FormatLine(w, FormatShort, false); got[:2] != " 3" {
+	if got := FormatLine(w, FormatShort, ""); got[:2] != " 3" {
 		t.Errorf("workspace not right-aligned in 2 cols: %q", got)
 	}
 	wide := sampleClient()
 	wide["workspace"] = map[string]any{"id": 23, "name": "23"}
-	if got := FormatLine(mustWindow(t, wide), FormatShort, false); got[:2] != "23" {
+	if got := FormatLine(mustWindow(t, wide), FormatShort, ""); got[:2] != "23" {
 		t.Errorf("2-digit workspace should not be padded: %q", got)
-	}
-}
-
-func TestIconFor(t *testing.T) {
-	cases := []struct{ class, want string }{
-		{"org.mozilla.Thunderbird", "thunderbird"},
-		{"footclient", "footclient"},
-		{"Steam", "steam"},
-		{"", ""},
-	}
-	for _, c := range cases {
-		w := Window{Class: c.class}
-		if got := IconFor(w); got != c.want {
-			t.Errorf("IconFor(%q) = %q, want %q", c.class, got, c.want)
-		}
 	}
 }
 

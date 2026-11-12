@@ -66,10 +66,10 @@ const (
 // The workspace name is right-aligned in 2 columns. The address is the
 // second tab-separated field so launchers that return the whole selected
 // line (wofi/dmenu) still yield it via AddressFromLine; fuzzel hides it with
-// --with-nth=1 and returns only it with --accept-nth=2. The trailing
-// "\0icon\x1f<name>" is rofi-style icon metadata understood by fuzzel and
-// rofi; pass withIcon=false for launchers without icon support.
-func FormatLine(w Window, format Format, withIcon bool) string {
+// --with-nth=1 and returns only it with --accept-nth=2. A non-empty icon is
+// appended as rofi-style metadata "\0icon\x1f<name>", understood by fuzzel
+// and rofi; pass "" for launchers without icon support.
+func FormatLine(w Window, format Format, icon string) string {
 	ws := fmt.Sprintf("%2s", w.Workspace.Name)
 	var text string
 	switch format {
@@ -79,22 +79,10 @@ func FormatLine(w Window, format Format, withIcon bool) string {
 		text = fmt.Sprintf("%s %s", ws, w.Title)
 	}
 	line := text + "\t" + w.Address
-	if withIcon {
-		if icon := IconFor(w); icon != "" {
-			line += "\x00icon\x1f" + icon
-		}
+	if icon != "" {
+		line += "\x00icon\x1f" + icon
 	}
 	return line
-}
-
-// IconFor derives an icon theme name from the window class, e.g.
-// "org.mozilla.Thunderbird" -> "thunderbird", "Steam" -> "steam".
-func IconFor(w Window) string {
-	c := w.Class
-	if i := strings.LastIndex(c, "."); i >= 0 && i < len(c)-1 {
-		c = c[i+1:]
-	}
-	return strings.ToLower(c)
 }
 
 // AddressFromLine extracts the window address from a selected launcher line.

@@ -98,7 +98,7 @@ func cmdList(stdout, stderr io.Writer, args []string) int {
 		return 0
 	}
 	for _, w := range windows {
-		fmt.Fprintln(stdout, window.FormatLine(w, format, false))
+		fmt.Fprintln(stdout, window.FormatLine(w, format, ""))
 	}
 	return 0
 }
@@ -111,6 +111,7 @@ func cmdSwitch(stdout, stderr io.Writer, args []string) int {
 	includeAll := fs.Bool("all", false, "include special-workspace and empty-title windows")
 	formatFlag := fs.String("format", string(window.FormatShort), "display format: short|full")
 	icon := fs.Bool("icon", true, "show app icons (launchers that support them)")
+	iconMapPath := fs.String("icon-map", "", "enable class-to-icon mapping via this 'class=icon' file plus built-in defaults (default: off, launcher icon theme lookup only)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -119,6 +120,13 @@ func cmdSwitch(stdout, stderr io.Writer, args []string) int {
 		fmt.Fprintf(stderr, "wrep: %v\n", err)
 		return 2
 	}
+	var iconMap map[string]string
+	if *iconMapPath != "" {
+		iconMap, err = window.LoadIconMap(*iconMapPath)
+		if err != nil {
+			return fail(stderr, err)
+		}
+	}
 	windows, err := hyprland.Clients()
 	if err != nil {
 		return fail(stderr, err)
@@ -126,7 +134,19 @@ func cmdSwitch(stdout, stderr io.Writer, args []string) int {
 	withIcon := *icon && launcher.Launchers[*launcherName].SupportsIcon
 	lines := make([]string, 0, len(windows))
 	for _, w := range window.FilterListable(windows, *includeAll) {
-		lines = append(lines, window.FormatLine(w, format, withIcon))
+		iconName := ""
+		if withIcon {
+			if iconMap != nil {
+				// With a map configured, resolve through it (user map, then
+				// built-in defaults).
+				iconName = window.ResolveIcon(w.Class, iconMap)
+			} else {
+				// Without a map, pass the class-derived name as-is and let
+				// the launcher's icon theme lookup decide.
+				iconName = window.FallbackIconName(w.Class)
+			}
+		}
+		lines = append(lines, window.FormatLine(w, format, iconName))
 	}
 	selected, err := launcher.Select(*launcherName, lines, *prompt)
 	if err != nil {
