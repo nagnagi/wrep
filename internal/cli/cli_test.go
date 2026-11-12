@@ -44,6 +44,14 @@ func run(t *testing.T, args ...string) (int, string, string) {
 	return rc, stdout.String(), stderr.String()
 }
 
+// isolateXDG points XDG_DATA_HOME/XDG_DATA_DIRS at empty temp dirs so icon
+// resolution in tests does not depend on the host's real applications/icons.
+func isolateXDG(t *testing.T) {
+	t.Helper()
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	t.Setenv("XDG_DATA_DIRS", t.TempDir())
+}
+
 func TestList(t *testing.T) {
 	stubHyprland(t)
 	rc, out, _ := run(t, "list")
@@ -127,6 +135,7 @@ func TestSwitchFocusesSelected(t *testing.T) {
 
 func TestSwitchIconMetadata(t *testing.T) {
 	stubHyprland(t)
+	isolateXDG(t)
 	origSelect := launcher.Select
 	var gotLines []string
 	launcher.Select = func(name string, lines []string, prompt string) (string, error) {
@@ -159,6 +168,7 @@ func TestSwitchIconMetadata(t *testing.T) {
 
 func TestSwitchIconMap(t *testing.T) {
 	stubHyprland(t)
+	isolateXDG(t)
 	origSelect := launcher.Select
 	var gotLines []string
 	launcher.Select = func(name string, lines []string, prompt string) (string, error) {
@@ -184,6 +194,49 @@ func TestSwitchIconMap(t *testing.T) {
 	rc, _, stderr := run(t, "switch", "--launcher", "fuzzel", "--icon-map", filepath.Join(dir, "nope.conf"))
 	if rc != 1 || stderr == "" {
 		t.Errorf("rc = %d, stderr = %q; want 1 with error", rc, stderr)
+	}
+}
+
+func TestSwitchIconResolvedFromDesktop(t *testing.T) {
+	stubHyprland(t)
+	home := t.TempDir()
+	sys := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", home)
+	t.Setenv("XDG_DATA_DIRS", sys)
+
+	// The window class is "footclient"; its .desktop declares Icon=foot,
+	// which exists as a themed icon file. The launcher line must carry the
+	// resolved absolute path, not the class-derived name.
+	appDir := filepath.Join(home, "applications")
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(appDir, "foot.desktop"),
+		[]byte("[Desktop Entry]\nIcon=foot\nStartupWMClass=footclient\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	iconPath := filepath.Join(home, "icons", "hicolor", "48x48", "apps", "foot.png")
+	if err := os.MkdirAll(filepath.Dir(iconPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(iconPath, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origSelect := launcher.Select
+	var gotLines []string
+	launcher.Select = func(name string, lines []string, prompt string) (string, error) {
+		gotLines = lines
+		return "", nil
+	}
+	t.Cleanup(func() { launcher.Select = origSelect })
+
+	rc, _, _ := run(t, "switch", "--launcher", "fuzzel")
+	if rc != 0 {
+		t.Fatalf("rc = %d", rc)
+	}
+	if len(gotLines) != 1 || !strings.Contains(gotLines[0], "\x00icon\x1f"+iconPath) {
+		t.Errorf("lines = %q, want icon metadata with resolved path %q", gotLines, iconPath)
 	}
 }
 

@@ -22,7 +22,7 @@ wrep focus 0x55a1b9c2fb30                   # address を指定してフォー�
 ```
 
 - 一覧のデフォルト表示は `<workspace> <ウィンドウ名>` です。workspace は2桁右揃えでアラインされます。`--format full` で `<workspace>  <ウィンドウ名> - <アプリケーション名>` になります（`list` / `switch` 共通オプション）。
-- `wrep switch` ではアプリアイコンを表示します（fuzzel / rofi は rofi 拡張プロトコルの `\0icon\x1f<名前>` に対応）。デフォルトでは class から導出したアイコン名（末尾ドット以降を小文字化。例: `org.mozilla.Thunderbird` → `thunderbird`）をそのまま渡し、実際の画像の解決は fuzzel のアイコンテーマ検索（XDG Icon Theme Specification）に任せます。テーマに無い名前はアイコンなしで表示されます。`--icon=false` で無効化。wofi / dmenu は非対応のため付きません。
+- `wrep switch` ではアプリアイコンを表示します（fuzzel / rofi は rofi 拡張プロトコルの `\0icon\x1f<名前>` に対応）。デフォルトではウィンドウの class に対応する `.desktop` ファイル（`$XDG_DATA_HOME/applications` と `$XDG_DATA_DIRS/applications` を検索し、`StartupWMClass` または desktop id（ファイル名）が class と一致するもの。完全一致を優先し、なければ大文字小文字を区別せず一致するもの）の `Icon=` を使います。`Icon=` がテーマ名の場合は XDG アイコンテーマ検索（`default` テーマの `Inherits` チェーン + `hicolor` の `icons/<theme>/*/apps/<名前>.{png,svg,xpm}`、最後に `pixmaps/<名前>.<拡張子>`）で実ファイルを探し、見つかった絶対パスを fuzzel に渡します（fuzzel はパス指定のアイコンを直接読み込みます。fuzzel のアプリケーションモードと同じソース・同じ検索先です）。`.desktop` が見つからない場合は class 名そのものや、末尾ドット以降を小文字化した名前（例: `org.mozilla.Thunderbird` → `thunderbird`）でも同様に検索し、どれも見つからなければ class 由来の名前をそのまま渡して fuzzel のアイコンテーマ検索に任せます。テーマに無い名前はアイコンなしで表示されます。`--icon=false` で無効化。wofi / dmenu は非対応のため付きません。
   - `--icon-map <ファイル>` を指定すると、そのファイル（1行1エントリの `class=icon`、`#` はコメント）と組み込みマップで名前を変換します。解決順は「ユーザーマップ → 組み込みマップ（完全一致 → `*` 付きは前方一致）」です。組み込みマップの例: `footclient` → `utilities-terminal`、`org.pulseaudio.pavucontrol` → `multimedia-volume-control`、`steam_app_*` → `steam`。例: `footclient=myterm`
   - fuzzel のテーマ自体は `--icon-theme` オプション（デフォルト `default` → `Inherits=Adwaita` → … → `hicolor`）で切り替えられます。wrep から渡す場合は `internal/launcher/launcher.go` の fuzzel の argv に追記してください。
 - 内部的には各行の末尾にタブ区切りで address が付き、fuzzel では `--with-nth=1 --accept-nth=2` により非表示・選択時のみ返却されます。
@@ -48,7 +48,8 @@ go vet ./...      # 静的解析
 
 ```
 main.go                  # エントリポイント
-internal/window/         # Window 型・フィルタ・行フォーマット
+internal/window/         # Window 型・フィルタ・行フォーマット・アイコン解決
+internal/desktop/        # .desktop ファイル検索（class → Icon 取得）
 internal/hyprland/       # hyprctl の呼び出し（clients / focuswindow）
 internal/launcher/       # fuzzel / wofi / rofi / dmenu への一覧受け渡し
 internal/cli/            # list / switch / focus コマンド

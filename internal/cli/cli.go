@@ -141,9 +141,10 @@ func cmdSwitch(stdout, stderr io.Writer, args []string) int {
 				// built-in defaults).
 				iconName = window.ResolveIcon(w.Class, iconMap)
 			} else {
-				// Without a map, pass the class-derived name as-is and let
-				// the launcher's icon theme lookup decide.
-				iconName = window.FallbackIconName(w.Class)
+				// Without a map, resolve via the app's .desktop Icon and
+				// the XDG icon theme lookup; fall back to the class-derived
+				// name and let the launcher's own lookup try.
+				iconName = window.ResolveIconAuto(w.Class)
 			}
 		}
 		lines = append(lines, window.FormatLine(w, format, iconName))
