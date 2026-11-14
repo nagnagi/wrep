@@ -1,0 +1,15 @@
+pkgbase = wrep
+	pkgdesc = List and switch Hyprland windows via dmenu-compatible launchers (fuzzel, rofi, wofi, dmenu)
+	pkgver = 0.1.1
+	pkgrel = 1
+	url = https://github.com/nagnagi/wrep
+	arch = x86_64
+	arch = aarch64
+	license = MIT
+	makedepends = go
+	makedepends = git
+	depends = hyprland
+	source = wrep-0.1.1.tar.gz::https://github.com/nagnagi/wrep/archive/refs/tags/v0.1.1.tar.gz
+	sha256sums = d98b0ac63b7c61c2035bbe6bd8553fc375b2bef2817568959349156046790443
+
+pkgname = wrep
