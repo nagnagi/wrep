@@ -1,1 +1,7 @@
 /wrep
+
+# makepkg build artifacts
+/src/
+/pkg/
+*.pkg.tar.*
+*.src.tar.gz
