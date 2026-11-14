@@ -1,34 +1,52 @@
 # wrep
 
-wrep is a single-binary CLI that lists the windows open in Hyprland (Wayland) and lets you switch between them from a dmenu-compatible launcher such as fuzzel.
+<p align="center">
+  A single-binary CLI that lists the windows open in Hyprland (Wayland) and switches between them from a dmenu-compatible launcher such as fuzzel
+</p>
 
-The window list is obtained from `hyprctl clients -j`, and the selected window is focused via `hyprctl dispatch`. There is no real-time monitoring; the list is fetched fresh on every invocation.
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.27%2B-00ADD8?logo=go&logoColor=white" alt="Go 1.27+">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License">
+</p>
 
 <!-- Logo: none yet -->
 
+```console
+$ wrep list
+ 1 Firefox - GitHub
+ 2 kitty
+10 nvim
+
+$ wrep list --format full
+ 1  Firefox - GitHub - firefox
+ 2  kitty - kitty
+10  nvim - neovim
+```
+
 ## Installation
 
-### Requirements
+You need Hyprland with `hyprctl` at runtime, one of fuzzel, rofi, wofi, or dmenu (for `wrep switch`), and Go (build time only).
 
-- Go (build time only)
-- Hyprland with `hyprctl` available at runtime
-- One of fuzzel, rofi, wofi, or dmenu (for `wrep switch`)
+```sh
+git clone https://github.com/nagnagi/wrep.git
+cd wrep
+./install.sh
+```
 
-### Build from source
+`install.sh` builds wrep and installs it to `~/.local/bin`. To install somewhere else, set `PREFIX` or pass `-d`.
+
+```sh
+PREFIX="$HOME/opt" ./install.sh   # installs to ~/opt/bin
+./install.sh -d /usr/local/bin
+```
+
+To build manually:
 
 ```sh
 go build -o wrep .
 ```
 
-This produces a statically linked single binary (~4.5 MB).
-
-### install.sh
-
-```sh
-./install.sh                 # installs to ~/.local/bin
-./install.sh -d /usr/local/bin
-PREFIX=/usr ./install.sh     # installs to /usr/bin
-```
+This produces a single static binary (~4.5 MB).
 
 ### Arch Linux (PKGBUILD)
 
@@ -40,39 +58,45 @@ makepkg -si
 
 ## Features
 
-- List Hyprland windows as `<workspace> <title>`, with the workspace column right-aligned to two digits; `--format full` appends the application class (`<workspace>  <title> - <class>`).
-- `wrep switch` pipes the list into a dmenu-compatible launcher (fuzzel by default; wofi / rofi / dmenu also supported) and focuses the selected window.
-- App icons in the launcher: for fuzzel and rofi, the icon is resolved from the window class via the matching `.desktop` file (`Icon=` key, searched in `$XDG_DATA_HOME/applications` and `$XDG_DATA_DIRS/applications` by `StartupWMClass` or desktop file id, exact match preferred, then case-insensitive). Theme icon names are resolved to real files through the XDG icon theme lookup (`Inherits` chain of the selected theme plus `hicolor`, then `pixmaps/`); absolute paths are passed to fuzzel, which loads them directly. Disable with `--icon=false`. `--icon-map <file>` instead maps `class=icon` entries (user file first, then built-in defaults such as `footclient` -> `utilities-terminal`, `steam_app_*` -> `steam`).
-- Empty-title and special-workspace (`monitor == -1`) windows are hidden by default; include them with `--all`.
+- The window list comes from `hyprctl clients -j`, fetched fresh on every invocation; the selected window is focused via `hyprctl dispatch`.
+- `wrep list` shows open windows as `<workspace> <title>`, with the workspace right-aligned to two digits; `--format full` appends the application class (`<workspace>  <title> - <class>`).
+- `wrep switch` pipes the list into a dmenu-compatible launcher (fuzzel by default; rofi, wofi, dmenu also supported) and focuses the selected window.
+- App icons in the launcher are resolved from each window class via the matching `.desktop` file (`Icon=` key) and the XDG icon theme. Disable with `--icon=false`; use `--icon-map <file>` for explicit `class=icon` mappings (built-in defaults such as `footclient` -> `utilities-terminal` apply).
+- Empty-title and special-workspace windows are hidden by default; include them with `--all`.
 - `wrep list --json` outputs the raw JSON for scripting.
-- Focus falls back from the legacy `dispatch focuswindow address:...` syntax to the Hyprland 0.55+ Lua form `dispatch 'hl.dsp.focus({ window = "address:..." })'`. Addresses are validated against `^0x[0-9a-fA-F]+$` to prevent Lua injection.
+- Focus falls back from the legacy `dispatch focuswindow address:...` syntax to the Hyprland 0.55+ Lua form; addresses are validated against `^0x[0-9a-fA-F]+$` before use.
 
 ## Usage
 
 ```sh
-wrep list [--json] [--all] [--format short|full]   # list open windows
-wrep switch [--launcher fuzzel] [--prompt "Window> "] [--all]
-               [--format short|full] [--icon] [--icon-map <file>]
-                                                    # pick a window in a launcher and focus it
-wrep focus 0x55a1b9c2fb30                           # focus a window by address
+wrep list [--json] [--all] [--format short|full]      # list open windows
+wrep switch [--launcher fuzzel] [--prompt "Window> "]  # pick a window in a launcher and focus it
+               [--all] [--format short|full] [--icon=false] [--icon-map <file>]
+wrep focus 0x55a1b9c2fb30                              # focus a window by address
 ```
 
-Internally, each line carries the window address appended after a tab; fuzzel is invoked with `--with-nth=1 --accept-nth=2` so the address is hidden but returned on selection.
+| Command | Action |
+|---|---|
+| `wrep list` | List open windows |
+| `wrep switch` | Pick a window in a launcher and focus it |
+| `wrep focus <address>` | Focus a window by address |
+
+For the options of each command, run `wrep <command> -h`.
 
 Example Hyprland keybind:
 
 ```lua
--- hyprland.lua / hyprland.conf
+-- hyprland.conf / hyprland.lua
 hl.bind("SUPER", "W", function() hl.exec_cmd("wrep switch --launcher fuzzel") end)
 ```
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+[MIT License](LICENSE)
 
 ## Contributing
 
-Issues and pull requests are welcome.
+Issues and pull requests are welcome. Before you open a pull request, make sure that the tests pass.
 
 ```sh
 go test ./...   # run tests
